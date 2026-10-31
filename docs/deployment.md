@@ -101,6 +101,72 @@ Notes:
 * The worker Deployment runs the same image with `WORKER_MODE=standalone`. Exactly one or
   more replicas are safe: jobs are claimed per row, so duplicates are avoided.
 
+## 4b. Vercel (serverless)
+
+The same codebase runs on Vercel as a static SPA plus one Node function. SQLite and the
+local uploads directory are not available there, so the deployment needs a PostgreSQL
+database (Supabase, Neon, RDS…) and object storage for receipts.
+
+```
+Browser ──► Vercel CDN (web/dist)          api/index.js (Node 22/26 function)
+                    │                              │
+                    └──── /api/v1/* ───────────────┤
+                                                   └──► PostgreSQL (pooler)
+```
+
+What the repository already provides:
+
+| File | Purpose |
+| --- | --- |
+| `api/index.js` | The deployed function (built from `serverless/entry.ts` by `npm run build:vercel`) |
+| `serverless/entry.ts` | Fastify handler for Node functions: builds the app once per warm instance |
+| `server/src/db/bootstrap.ts` | Applies pending migrations (from disk or the build-time bundle) and seeds the sandbox when `SEED_DEMO=true` and the database is empty |
+| `vercel.json` | Build command, output directory, rewrites, security headers, cron |
+| `scripts/build-vercel.mjs` | Vite build + migration inlining + function bundling |
+
+Setup:
+
+1. **Database** — create a Postgres project. Use the **connection pooler** string
+   (port 6543, user `postgres.<project-ref>`) because Vercel functions have no IPv4 route
+   to the direct database host. Add `?sslmode=require`.
+2. **Environment variables** (Production and Preview):
+
+   | Key | Value |
+   | --- | --- |
+   | `DATABASE_URL` | `postgres://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?sslmode=require` |
+   | `JWT_SECRET` / `ENCRYPTION_KEY` | 32+ random characters each (`openssl rand -hex 32`) |
+   | `APP_URL` | `https://<project>.vercel.app` |
+   | `CORS_ORIGINS` | same origin as `APP_URL` |
+   | `NODE_ENV` | `production` |
+   | `SEED_DEMO` | `true` for a demo instance, otherwise `false` |
+   | `CRON_SECRET` | random string; authorises the scheduler route |
+   | `PG_POOL_MAX` | `5` (each instance keeps a small pool) |
+   | `REQUIRE_2FA_FOR_ADMINS` | `true` in real production, `false` for demos |
+
+3. **Deploy** the branch (Vercel builds `npm run build:vercel`, serves `web/dist`, and
+   routes `/api/*` to the function). The first request after a cold start applies the
+   schema and, when the database is empty, seeds the demo company — expect that first
+   request to take a few seconds.
+4. **Scheduler** — there is no long-lived worker. `vercel.json` declares a daily cron that
+   calls `/api/v1/cron/jobs`; on paid plans change the schedule to every few minutes.
+   The route requires `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends it
+   automatically) and runs webhook delivery, recurring invoices, reminders and scheduled
+   reports.
+
+Constraints to plan around:
+
+* **No persistent disk.** Receipt uploads return `501 storage_unavailable` until
+  `STORAGE_DRIVER=s3` is implemented in `server/src/services/storage.ts` (upload to any
+  S3-compatible bucket). Everything else — invoices, bills, reports, PDFs (streamed, not
+  stored) — works.
+* **Cold starts** build the Fastify app and open a pool per instance; the pool is capped
+  by `PG_POOL_MAX`. Use the pooler's transaction mode, which the driver's `BEGIN`/`COMMIT`
+  transactions support.
+* **No background worker inside the request path** — reliability of reminders and
+  recurring invoices depends on the cron schedule actually firing.
+* **Function size** stays small because dependencies are external and installed from
+  `package.json`; `api/index.js` is only the bundled application code.
+
 ## 5. TLS and reverse proxy
 
 Terminate TLS at the ingress (recommended) or use `deploy/nginx/ledgerline.conf`:

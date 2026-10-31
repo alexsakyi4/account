@@ -171,7 +171,9 @@ deployment, worker, service, ingress, HPA, PDB and network-policy manifests;
 suites, builds the bundles, verifies the OpenAPI file is current, builds the image, and
 runs `npm audit` + CodeQL + secret scanning.
 
-Step-by-step: [docs/deployment.md](docs/deployment.md).
+Step-by-step: [docs/deployment.md](docs/deployment.md). A serverless profile for Vercel
+(static SPA + one Node function + Postgres + cron-driven worker) is documented in
+[docs/deployment.md](docs/deployment.md#4b-vercel-serverless).
 
 ## Project conventions
 
