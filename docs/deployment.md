@@ -142,6 +142,8 @@ Setup:
    | `CRON_SECRET` | random string; authorises the scheduler route |
    | `PG_POOL_MAX` | `5` (each instance keeps a small pool) |
    | `REQUIRE_2FA_FOR_ADMINS` | `true` in real production, `false` for demos |
+   | `BOOTSTRAP_DEBUG` | `true` only while diagnosing a failing boot (adds a stack to the 503) |
+   | `PG_SSL_VERIFY_STRICT` | `true` when `DATABASE_URL` carries a verifiable CA (`sslrootcert`) |
 
 3. **Deploy** the branch (Vercel builds `npm run build:vercel`, serves `web/dist`, and
    routes `/api/*` to the function). The first request after a cold start applies the
@@ -152,6 +154,24 @@ Setup:
    The route requires `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends it
    automatically) and runs webhook delivery, recurring invoices, reminders and scheduled
    reports.
+
+Troubleshooting the first deploy:
+
+* **`FUNCTION_INVOCATION_FAILED` / 500 on every API call** — the function threw
+  before or while booting. `api/index.js` loads the app lazily, so the handler
+  answers `503` with a generic message; set `BOOTSTRAP_DEBUG=true` on the project
+  to include the first lines of the stack trace in that response, then look at
+  *Deployments → Functions → Logs*.
+* **`self-signed certificate in certificate chain`** — `pg` 8.23 reads
+  `sslmode=require` as *verify-full*. The driver maps `require`/`prefer`/
+  `verify-ca` (without `sslrootcert`) to `sslmode=no-verify`, so the connection
+  is still TLS but the provider's private CA is not pinned. To verify properly,
+  pass `sslrootcert=<pem>` in `DATABASE_URL` or set `PG_SSL_VERIFY_STRICT=true`
+  together with the CA.
+* **`require() of ES Module … not supported`** — a dependency is ESM-only and
+  the runtime refuses to `require()` it. Load such plugins with a dynamic
+  `import()` inside the code path that needs them (that is why
+  `@fastify/static` is imported lazily: the CDN serves the SPA on Vercel).
 
 Constraints to plan around:
 
