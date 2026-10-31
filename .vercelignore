@@ -10,5 +10,3 @@ dist
 .env
 .env.*
 *.log
-api/index.js
-server/src/db/migrations.generated.ts

@@ -15,7 +15,7 @@ execFileSync(process.execPath, ['node_modules/vite/bin/vite.js', 'build'], { std
 
 console.log('▸ bundling api/index.js');
 await build({
-  entryPoints: ['api/index.ts'],
+  entryPoints: ['serverless/entry.ts'],
   outfile: 'api/index.js',
   bundle: true,
   platform: 'node',
