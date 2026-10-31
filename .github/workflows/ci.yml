@@ -39,6 +39,11 @@ jobs:
       - name: Build API and web bundles
         run: npm run build
 
+      - name: Serverless function bundle is up to date
+        run: |
+          npm run build:vercel:fn
+          git diff --exit-code api/index.js
+
       - name: OpenAPI spec is up to date
         run: |
           npm run openapi

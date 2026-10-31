@@ -2,7 +2,8 @@
  * Vercel build: compile the SPA, inline the SQL migrations and bundle the API
  * into a single serverless function (api/index.js).
  *
- *   node scripts/build-vercel.mjs
+ *   node scripts/build-vercel.mjs                  # SPA + function
+ *   node scripts/build-vercel.mjs --functions-only # migrations + function only
  */
 import { execFileSync } from 'node:child_process';
 import { build } from 'esbuild';
@@ -10,8 +11,11 @@ import { build } from 'esbuild';
 console.log('▸ inlining migrations');
 execFileSync(process.execPath, ['scripts/bundle-migrations.mjs'], { stdio: 'inherit' });
 
-console.log('▸ building web');
-execFileSync(process.execPath, ['node_modules/vite/bin/vite.js', 'build'], { stdio: 'inherit' });
+const functionsOnly = process.argv.includes('--functions-only');
+if (!functionsOnly) {
+  console.log('▸ building web');
+  execFileSync(process.execPath, ['node_modules/vite/bin/vite.js', 'build'], { stdio: 'inherit' });
+}
 
 console.log('▸ bundling api/index.js');
 await build({

@@ -34,7 +34,7 @@
     "pg": "^8.23.1",
     "zod": "^4.6.7"
   },
-  "description": "LedgerLine — multi-tenant small business accounting SaaS (invoicing, banking, payroll, reports, open API).",
+  "description": "LedgerLine \u2014 multi-tenant small business accounting SaaS (invoicing, banking, payroll, reports, open API).",
   "license": "MIT",
   "engines": {
     "node": ">=22.5.0"
@@ -58,6 +58,7 @@
     "openapi": "tsx scripts/generate-openapi.ts",
     "typecheck:web": "tsc -p web/tsconfig.json --noEmit",
     "schema:bundle": "node scripts/bundle-migrations.mjs",
-    "build:vercel": "node scripts/build-vercel.mjs"
+    "build:vercel": "node scripts/build-vercel.mjs",
+    "build:vercel:fn": "node scripts/build-vercel.mjs --functions-only"
   }
 }
