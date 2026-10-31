@@ -1,0 +1,13 @@
+node_modules
+web/dist
+dist
+data
+uploads
+tmp
+.git
+.github
+tests
+*.log
+.env
+.env.*
+!.env.example

@@ -1,0 +1,17 @@
+process.env.NODE_ENV='test';
+process.env.JWT_SECRET='test-secret-test-secret-test-secret-1234';
+process.env.ENCRYPTION_KEY='test-encryption-key-test-encryption-1';
+const { createDb } = await import('../server/src/db/driver.ts');
+const { migrate } = await import('../server/src/db/migrate.ts');
+const { buildApp } = await import('../server/src/app.ts');
+const db = createDb('sqlite:/tmp/invite-debug.db');
+await migrate(db);
+const app = await buildApp({ db, logger: true });
+await app.ready();
+const reg = await app.inject({method:'POST',url:'/api/v1/auth/register',payload:{companyName:'X Co',name:'Ann Admin',email:'a@example.com',password:'CorrectHorse123!'}});
+const token = reg.json().accessToken;
+const inv = await app.inject({method:'POST',url:'/api/v1/users/invite',headers:{authorization:`Bearer ${token}`},payload:{email:'b@example.com',role:'bookkeeper'}});
+const inviteToken = new URL(inv.json().inviteUrl).searchParams.get('token');
+const acc = await app.inject({method:'POST',url:'/api/v1/auth/accept-invite',payload:{token:inviteToken,password:'AnotherPass123!',name:'Bob Bookkeeper'}});
+console.log('ACCEPT', acc.statusCode, acc.body.slice(0,300));
+await app.close();
