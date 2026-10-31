@@ -39,6 +39,10 @@ export const config = {
   seedDemo: bool(env.SEED_DEMO, false),
   logLevel: env.LOG_LEVEL ?? 'info',
   jobsIntervalMs: Number(env.JOBS_INTERVAL_MS ?? 15_000),
+  /** Set on Vercel/Netlify-style platforms where there is no long-lived process. */
+  serverless: Boolean(env.VERCEL || env.AWS_LAMBDA_FUNCTION_NAME || env.NETLIFY),
+  /** Shared secret that authorises the scheduler to run due jobs. */
+  cronSecret: env.CRON_SECRET ?? '',
 };
 
 /** Fail fast on missing security-critical configuration in production. */

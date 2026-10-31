@@ -9,6 +9,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
+import { AppError } from '../lib/errors.js';
 
 export interface StoredFile {
   key: string;
@@ -25,6 +26,13 @@ export async function putFile(tenantId: string, filename: string, data: Buffer):
   const key = path.join(tenantId, `${randomUUID()}-${safeName(filename)}`);
   if (process.env.STORAGE_DRIVER === 's3') {
     throw new Error('S3 storage adapter is not configured. Provide an S3 client implementation in services/storage.ts.');
+  }
+  if (config.serverless) {
+    throw new AppError(
+      501,
+      'storage_unavailable',
+      'Receipt storage is not configured for this deployment. Set STORAGE_DRIVER=s3 with a bucket, or run the container image with a persistent volume.',
+    );
   }
   const target = path.join(config.uploadDir, key);
   await mkdir(path.dirname(target), { recursive: true });

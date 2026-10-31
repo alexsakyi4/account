@@ -11,8 +11,26 @@
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
-import { DatabaseSync } from 'node:sqlite';
+import { createRequire } from 'node:module';
+import type { DatabaseSync as SqliteDatabase } from 'node:sqlite';
 import pg from 'pg';
+
+/**
+ * `node:sqlite` is loaded on demand so a PostgreSQL-only deployment (Vercel,
+ * managed containers) never touches it — the module is experimental in some
+ * Node builds and simply may not exist there.
+ */
+type SqliteCtor = new (filename: string) => SqliteDatabase;
+function loadSqlite(): SqliteCtor {
+  const require = createRequire(import.meta.url);
+  try {
+    return (require('node:sqlite') as { DatabaseSync: SqliteCtor }).DatabaseSync;
+  } catch {
+    throw new Error(
+      'SQLite is unavailable in this runtime. Set DATABASE_URL to a PostgreSQL connection string.',
+    );
+  }
+}
 
 export type Dialect = 'sqlite' | 'postgres';
 export type Param = unknown;
@@ -58,10 +76,11 @@ export function toPgSql(sql: string): string {
 
 class SqliteDb implements DB {
   readonly dialect: Dialect = 'sqlite';
-  private inner: DatabaseSync;
+  private inner: SqliteDatabase;
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(filename: string) {
+    const DatabaseSync = loadSqlite();
     this.inner = new DatabaseSync(filename);
     this.inner.exec('PRAGMA journal_mode = WAL;');
     this.inner.exec('PRAGMA foreign_keys = ON;');

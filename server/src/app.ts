@@ -118,9 +118,33 @@ export async function buildApp({ db, logger }: BuildOptions): Promise<FastifyIns
     { prefix: '/api/v1' },
   );
 
+  /**
+   * Scheduler entry point. Serverless platforms have no long-lived worker, so
+   * an external scheduler (Vercel Cron, Kubernetes CronJob, GitHub Actions)
+   * pokes this route. The shared secret keeps it closed to the public while
+   * still allowing a GET so platform cron jobs can call it directly.
+   */
+  app.route({
+    method: ['GET', 'POST'],
+    url: '/api/v1/cron/jobs',
+    handler: async (req: FastifyRequest, reply: FastifyReply) => {
+      if (!config.cronSecret) {
+        return reply.code(503).send({ error: { code: 'cron_disabled', message: 'CRON_SECRET is not configured' } });
+      }
+      const header = req.headers.authorization?.replace(/^Bearer\s+/i, '') ?? req.headers['x-cron-secret'];
+      if (typeof header !== 'string' || header !== config.cronSecret) {
+        return reply.code(401).send({ error: { code: 'unauthorized', message: 'Invalid cron secret' } });
+      }
+      const { runDueWork } = await import('./jobs/worker.js');
+      const stats = await runDueWork(db);
+      return { ok: true, ...stats, ranAt: new Date().toISOString() };
+    },
+  });
+
   // Single-page application hosting (production image serves the built web app).
+  // Serverless deployments serve the SPA from the CDN instead.
   const webDist = path.resolve(process.cwd(), 'web/dist');
-  if (existsSync(webDist)) {
+  if (!config.serverless && existsSync(webDist)) {
     await app.register(fastifyStatic, { root: webDist, prefix: '/', decorateReply: false, wildcard: false });
     app.get('/*', async (req, reply) => {
       if (req.url.startsWith('/api/')) {
