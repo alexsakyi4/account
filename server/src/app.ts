@@ -4,7 +4,6 @@ import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyRateLimit from '@fastify/rate-limit';
-import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { config } from './config.js';
 import type { DB } from './db/driver.js';
@@ -145,6 +144,9 @@ export async function buildApp({ db, logger }: BuildOptions): Promise<FastifyIns
   // Serverless deployments serve the SPA from the CDN instead.
   const webDist = path.resolve(process.cwd(), 'web/dist');
   if (!config.serverless && existsSync(webDist)) {
+    // Imported lazily: @fastify/static pulls in an ESM-only dependency that the
+    // serverless runtime refuses to require(), and the CDN serves the SPA there.
+    const { default: fastifyStatic } = await import('@fastify/static');
     await app.register(fastifyStatic, { root: webDist, prefix: '/', decorateReply: false, wildcard: false });
     app.get('/*', async (req, reply) => {
       if (req.url.startsWith('/api/')) {
