@@ -1,0 +1,12 @@
+node_modules
+data
+uploads
+tmp
+tests
+playwright-report
+test-results
+coverage
+dist
+.env
+.env.*
+*.log

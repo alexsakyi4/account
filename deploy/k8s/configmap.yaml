@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ledgerline-config
+  namespace: ledgerline
+data:
+  NODE_ENV: production
+  PORT: "4000"
+  HOST: 0.0.0.0
+  APP_URL: https://app.ledgerline.example.com
+  API_URL: https://app.ledgerline.example.com
+  CORS_ORIGINS: https://app.ledgerline.example.com
+  DATABASE_URL: postgres://ledgerline@postgres.ledgerline.svc.cluster.local:5432/ledgerline?sslmode=require
+  UPLOAD_DIR: /data/uploads
+  REQUIRE_2FA_FOR_ADMINS: "true"
+  JOBS_INTERVAL_MS: "15000"

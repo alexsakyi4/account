@@ -1,0 +1,50 @@
+# Local/production-like stack: Postgres, Redis (queue experiments), the app.
+# `docker compose up --build` then open http://localhost:4000
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ledgerline
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ledgerline}
+      POSTGRES_DB: ledgerline
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ledgerline -d ledgerline']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  cache:
+    image: redis:7-alpine
+    command: ['redis-server', '--save', '60', '1', '--maxmemory', '256mb', '--maxmemory-policy', 'allkeys-lru']
+    volumes:
+      - redisdata:/data
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://ledgerline:${POSTGRES_PASSWORD:-ledgerline}@db:5432/ledgerline
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (openssl rand -hex 32)}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY (openssl rand -hex 32)}
+      APP_URL: ${APP_URL:-http://localhost:4000}
+      API_URL: ${API_URL:-http://localhost:4000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:4000}
+      SEED_DEMO: ${SEED_DEMO:-false}
+      REQUIRE_2FA_FOR_ADMINS: ${REQUIRE_2FA_FOR_ADMINS:-true}
+      UPLOAD_DIR: /data/uploads
+    ports:
+      - '4000:4000'
+    volumes:
+      - appdata:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  appdata:

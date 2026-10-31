@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": false,
+    "noEmit": true,
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "@/*": [
+        "./web/src/*"
+      ],
+      "@shared/*": [
+        "./shared/*"
+      ]
+    }
+  },
+  "include": [
+    "server/src/**/*.ts",
+    "shared/**/*.ts",
+    "tests/**/*.ts",
+    "web/src/**/*.ts",
+    "web/src/**/*.tsx",
+    "scripts/**/*.mjs",
+    "serverless/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "web/dist"
+  ]
+}
