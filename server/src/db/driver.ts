@@ -33,6 +33,33 @@ function loadSqlite(): SqliteCtor {
 }
 
 export type Dialect = 'sqlite' | 'postgres';
+
+/**
+ * PostgreSQL pool options.
+ *
+ * `pg` 8.23 parses `sslmode=require` as libpq's *verify-full*: the server
+ * certificate is checked against the system trust store. Hosted providers
+ * (Supabase, Neon, RDS proxies…) sign with their own CA, so a plain
+ * `?sslmode=require` URL fails with "self-signed certificate in certificate
+ * chain" even though the connection would be encrypted.
+ *
+ * We keep the historical meaning of the modes that only promise encryption —
+ * `require`, `prefer` and `verify-ca` (without `sslrootcert`) become
+ * `sslmode=no-verify`: still TLS, certificate chain not pinned. Set
+ * `PG_SSL_VERIFY_STRICT=true` (and pass `sslrootcert`/`sslcert` in the URL) to
+ * get full verification, which is what `sslmode=verify-full` always does.
+ */
+export function poolConfig(url: string): pg.PoolConfig {
+  const strict = /^(1|true|yes|on)$/i.test(process.env.PG_SSL_VERIFY_STRICT ?? '');
+  const unverified = /[?&]sslmode=(require|prefer|verify-ca)\b/i;
+  const hasRootCert = /[?&]sslrootcert=/i.test(url);
+  const connectionString =
+    !strict && !hasRootCert && unverified.test(url)
+      ? url.replace(unverified, (match) => match.replace(/=(require|prefer|verify-ca)$/i, '=no-verify'))
+      : url;
+  return { connectionString, max: Number(process.env.PG_POOL_MAX ?? 10) };
+}
+
 export type Param = unknown;
 
 export interface DB {
@@ -164,7 +191,7 @@ class PostgresDb implements DB {
   constructor(url: string) {
     // Money fits comfortably in a double, and consumers expect numbers.
     pg.types.setTypeParser(20, (v) => Number(v));
-    this.pool = new pg.Pool({ connectionString: url, max: Number(process.env.PG_POOL_MAX ?? 10) });
+    this.pool = new pg.Pool(poolConfig(url));
   }
 
   private client(): pg.Pool | pg.PoolClient {
